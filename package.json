@@ -1,9 +1,25 @@
 {
-  "name": "scripts",
+  "name": "app",
   "version": "1.0.0",
-  "main": "src/index.js",
+  "description": "",
+  "homepage": "https://github.com/CrisAxe/i-js#readme",
+  "bugs": {
+    "url": "https://github.com/CrisAxe/i-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CrisAxe/i-js.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
   "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "steroids":"node scr/steroids.js"
+    "steroids": "node src/steroids.js"
+  },
+  "dependencies": {
+    "prompt-sync": "^4.2.0"
   }
 }
