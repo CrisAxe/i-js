@@ -1,11 +1,24 @@
-const number = 12
+const number = 15;
 
-// Verifica se um número está entre 10 e 20 (inclusive) 
-if (number > 10 && number <= 20) {
-  console.log('The number is between 10 and 20 inclusive');
+if (number === 5 || number === 10 || number === 15) {
+  console.log('The number is either 5, 10, or 15');
+  console.log('Exiting the program.');
+  return;
 }
 
-// Verifica não é igual a 15
-if (!number === 15) {
-  console.log('The number is not 15');
-}
+// Verifica se um número está entre 10 e 20 (inclusive)
+console.log(
+  number > 10 && number <= 20
+    ? 'The number is between 10 and 20 inclusive'
+    : 'The number is outside the range'
+);
+
+console.log(
+  number === 15
+    ? 'The number is 15'
+    : `The number is ${number}`
+);
+ 
+
+
+
