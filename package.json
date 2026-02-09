@@ -16,8 +16,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js",
+    "start": "node src/prj.js",
     "steroids": "node src/steroids.js"
+
   },
   "dependencies": {
     "prompt-sync": "^4.2.0"
