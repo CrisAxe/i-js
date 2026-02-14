@@ -46,18 +46,18 @@ function verficacao(number){
 }
 
 
-// codigo Dinis
+
 const prompt = require("prompt-sync")();
 
 
 function tudo(numeroInserido){
 
-    if(numeroInserido === 15){    //se numero É 15
+    if(numeroInserido === 15){   
         console.log("O Número é igual a 15")
         return
     }
     
-    if (numeroInserido % 5 === 0){    // SENAO FOR 15, MAS FOR MULTIPLO DE 5
+    if (numeroInserido % 5 === 0){    
         console.log("PARE, o seu número é múltiplo de 5 menor que 20, bueda fixe")
         return
     }
