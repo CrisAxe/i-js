@@ -311,7 +311,7 @@ class Estoque {
 
 class Catalogo {
 	constructor() {
-		
+
 		this.produtos = new Map(); // adição de novo mapa vazio 
 	}
 
@@ -362,33 +362,58 @@ class Catalogo {
 
 class CarrinhoDeCompras {
 	constructor({ catalogo, estoque }) {
-		// TODO
-		throw new Error("TODO: implementar CarrinhoDeCompras");
+		if (!catalogo || !estoque) throw new Error("É necessário fornecer catalogo e estoque");
+		this.catalogo = catalogo;
+		this.estoque = estoque;
+		this.itens = new Map(); // sku -> ItemCarrinho
 	}
 
 	adicionarItem(sku, quantidade) {
-		// TODO
-		throw new Error("TODO: implementar adicionarItem");
+		assertPositiveNumber(quantidade, "quantidade");
+		this.estoque.garantirDisponibilidade(sku, quantidade);
+		const produto = this.catalogo.getProduto(sku);
+		if (!produto) throw new Error("Produto não encontrado");
+
+		if (this.itens.has(sku)) {
+			const item = this.itens.get(sku);
+			item.quantidade += quantidade;
+		} else {
+			this.itens.set(sku, new ItemCarrinho({
+				sku,
+				quantidade,
+				precoUnitario: produto.preco
+			}));
+		}
 	}
 
 	removerItem(sku) {
-		// TODO
-		throw new Error("TODO: implementar removerItem");
+		if (!this.itens.has(sku)) throw new Error("Produto não está no carrinho");
+		this.itens.delete(sku);
 	}
 
 	alterarQuantidade(sku, novaQuantidade) {
-		// TODO
-		throw new Error("TODO: implementar alterarQuantidade");
+		assertNonNegativeInt(novaQuantidade, "novaQuantidade");
+		if (!this.itens.has(sku)) throw new Error("Produto não está no carrinho");
+
+		if (novaQuantidade === 0) {
+			this.removerItem(sku);
+			return;
+		}
+
+		this.estoque.garantirDisponibilidade(sku, novaQuantidade);
+		this.itens.get(sku).quantidade = novaQuantidade;
 	}
 
 	listarItens() {
-		// TODO
-		throw new Error("TODO: implementar listarItens");
+		return Array.from(this.itens.values());
 	}
 
 	getSubtotal() {
-		// TODO
-		throw new Error("TODO: implementar getSubtotal");
+		let total = 0;
+		for (const item of this.itens.values()) {
+			total += item.getTotal();
+		}
+		return Number(total.toFixed(2));
 	}
 }
 
