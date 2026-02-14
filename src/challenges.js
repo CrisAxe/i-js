@@ -312,7 +312,7 @@ class Estoque {
 class Catalogo {
 	constructor() {
 		
-		this.produtos = new Map(); // adição de novo mapa  vazio 
+		this.produtos = new Map(); // adição de novo mapa vazio 
 	}
 
 	adicionarProduto(produto) {
@@ -343,7 +343,7 @@ class Catalogo {
 		const produto = this.getProduto(sku);
 
 		if (!produto) {
-			throw new Error("Produto não encontrado");
+			throw new Error("Produto não existe");
 		}
 
 		produto.preco = novoPreco;
