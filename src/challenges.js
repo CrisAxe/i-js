@@ -658,13 +658,121 @@ class Pedido {
 
 class CaixaRegistradora {
 	constructor({ catalogo, estoque, motorDePrecos }) {
-		// TODO
-		throw new Error("TODO: implementar CaixaRegistradora");
+		if (!catalogo || !estoque || !motorDePrecos) {//verifica todas as dependecians e garante casso alguma falte a classe nao funciona corretamamente
+			throw new Error("CaixaRegistradora requer catalogo, estoque e motorDePrecos");
+		}
+
+		this.catalogo = catalogo;
+		this.estoque = estoque;
+		this.motorDePrecos = motorDePrecos;
 	}
 
-	fecharCompra({ cliente, carrinho, cupomCodigo = null, numeroDeParcelas = 1 }) {
-		// TODO
-		throw new Error("TODO: implementar fecharCompra");
+	fecharCompra({ cliente, carrinho, cupomCodigo = null, numeroDeParcelas = 1 }) {//recebe os dados necessario para poder fechar a compra 
+		if (!cliente) {
+			throw new Error("Cliente é obrigatório");//define clente como obrigatorio
+		}
+
+		if (!carrinho || carrinho.length === 0) {//carrinho tem que conter pelo menos um item 
+			throw new Error("Carrinho vazio");
+		}
+
+		if (numeroDeParcelas < 1) {// tem que definir no minimo um parcela 
+			throw new Error("Número de parcelas inválido");
+		}
+
+		const itensDoPedido = [];//array contendo com os item 
+
+		for (const item of carrinho) {
+			const { produtoId, quantidade } = item;//retira os dados do item
+
+			if (!produtoId || !quantidade || quantidade <= 0) {//verifica o carrinho com os contedudos inseridos 
+				throw new Error("Item do carrinho inválido");
+			}
+
+			const produto = this.catalogo.buscarPorId(produtoId);//taz os produtos do catalogo 
+
+			if (!produto) {
+				throw new Error(`Produto não encontrado: ${produtoId}`);//caso produto nao exista aparece aviso 
+			}
+
+			if (numeroDeParcelas > produto.maximoParcelas) {
+				throw new Error(
+					`Produto ${produto.nome} permite no máximo ${produto.maximoParcelas} parcelas`// verifica o numero de parcelas pedido caso superior ao limite maximo aparece aviso 
+				);
+			}
+
+			itensDoPedido.push({//define os item pedido preparando pra fazer o pedido 
+				produto,
+				quantidade,
+				precoUnitario: produto.preco
+			});
+		}
+
+		const resultadoPreco = this.motorDePrecos.calcular({// define o calculo de subtotal, desconto e total 
+			cliente,
+			itens: itensDoPedido,
+			cupomCodigo
+		});
+
+		for (const item of itensDoPedido) {//remove os produtos do estoque apos o pedido 
+			this.estoque.remover({
+				produtoId: item.produto.id,
+				quantidade: item.quantidade
+			});
+		}
+
+		const resumoParcelas = itensDoPedido.map(item => { // mostra o resumo do numero de parcelas 
+			const totalItem = item.precoUnitario * item.quantidade;// total dos items 
+			const valorParcela = totalItem / numeroDeParcelas; //valor de cada parcela 
+
+			return {
+				produtoId: item.produto.id,
+				nomeProduto: item.produto.nome,
+				quantidade: item.quantidade,
+				totalItem,
+				parcelas: numeroDeParcelas,
+				valorParcela
+			};
+		});
+
+		const pedido = new Pedido({// cria um novo pedido com todas a informações necessaria 
+			cliente,
+			itens: itensDoPedido,
+			subtotal: resultadoPreco.subtotal,
+			desconto: resultadoPreco.desconto,
+			total: resultadoPreco.total,
+			cupomCodigo,
+			numeroDeParcelas,
+			resumoParcelas
+		});
+
+		this._imprimirResumo(pedido);
+
+		return pedido;
+	}
+
+	_imprimirResumo(pedido) {
+		console.log("===== CUPOM =====");
+		console.log(`Cliente: ${pedido.cliente.nome}`);
+		console.log(`Parcelas: ${pedido.numeroDeParcelas}x`);
+		console.log("");
+
+		for (const item of pedido.resumoParcelas) {
+			console.log(
+				`${item.nomeProduto} x${item.quantidade} - Total: R$ ${item.totalItem.toFixed(
+					2
+				)}`
+			);
+			console.log(
+				`  ${item.parcelas}x de R$ ${item.valorParcela.toFixed(2)}`
+			);
+		}
+
+		console.log("");
+		console.log(`Subtotal: R$ ${pedido.subtotal.toFixed(2)}`);
+		console.log(`Desconto: R$ ${pedido.desconto.toFixed(2)}`);
+		console.log(`Total: R$ ${pedido.total.toFixed(2)}`);
+		console.log("=================");
 	}
 }
 
