@@ -90,10 +90,10 @@ function assertCategoriaValida(categoria) {
 //   - retorna preco / numeroDeParcelas (2 casas)
 
 class Produto {
-	constructor({ sku, nome, preco, fabricante, categoria, numeroMaximoParcelas }) {
+	constructor({ sku, nome, preco, fabricante, categoria, numeroMaximoParcelas }) {// determina a classe e predefine o requisitos nessesarios 
 		// TODO
 		if (typeof sku !== 'string') {
-			throw new Error('Nome deve ser uma string');
+			throw new Error('sku deve ser uma string');
 		}
 		if (typeof nome !== 'string') {
 			throw new Error('Nome deve ser uma string');
@@ -106,7 +106,7 @@ class Produto {
 		}
 		assertCategoriaValida(categoria)
 
-		if (typeof numeroMaximoParcelas !== 'number' || numeroMaximoParcelas >= 1 && numeroMaximoParcelas <= 24) {
+		if (typeof numeroMaximoParcelas !== 'number' || !Number.isInteger(numeroMaximoParcelas) || numeroMaximoParcelas < 1 || numeroMaximoParcelas > 24) {
 			throw new Error('Número de parecelas invalido, numero de parcelas tem que ser entre 1 e 24 meses');
 		}
 
@@ -169,7 +169,7 @@ class Cliente {
 		}
 
 		this.id = id;
-		thid.nome = nome;
+		this.nome = nome;
 		this.tipo = tipo;
 		this.saldoPontos = saldoPontos;
 
@@ -473,13 +473,121 @@ class CarrinhoDeCompras {
 
 class MotorDePrecos {
 	constructor({ catalogo }) {
-		// TODO
-		throw new Error("TODO: implementar MotorDePrecos");
+		if (!catalogo) throw new Error("Catálogo é obrigatório"); //verifica se o catalog se enconta disponivel 
+		this.catalogo = catalogo; // atribui o catalago a instacia do objecto 
+
+		this.cuponsValidos = ["ETIC10", "FRETEGRATIS", "SEM-VIP"]; //determina o tipo de cupoes 
+		this.fretePadrao = 50; // determina o valor do envio inicial 
 	}
 
 	calcular({ cliente, itens, cupomCodigo }) {
-		// TODO
-		throw new Error("TODO: implementar calcular");
+		if (!Array.isArray(itens)) throw new Error("Itens inválidos");// faz a verificação de um array 
+
+		if (cupomCodigo && !this.cuponsValidos.includes(cupomCodigo)) {// faz a verificação para ver se o cupão é um dos predefinidos pelo sistema 
+			throw new Error(`Cupom inválido: ${cupomCodigo}`);
+		}
+
+		const detalhes = itens.map(item => { // cria um novo array com os detalhes de cada item
+			const produto = this.catalogo.buscarPorId(item.produtoId); // procura o produto atraves do id
+			if (!produto) throw new Error(`Produto ${item.produtoId} não encontrado`);
+			return { // retorna todos os detalhes do produto 
+				produtoId: produto.id,
+				nome: produto.nome,
+				categoria: produto.categoria,
+				precoUnitario: produto.preco,
+				quantidade: item.quantidade,
+				total: produto.preco * item.quantidade // calcula o total dos items
+			};
+		});
+
+		const subtotalOriginal = detalhes.reduce((sum, i) => sum + i.total, 0); // calcula o subtotal somando o subtotal do item
+		let subtotal = subtotalOriginal;
+		let descontos = []; //guarda os descontos aplicados
+
+
+		const roupas = detalhes.filter(i => i.categoria === "vestuário"); // filtra todos os items da categoria vestuario 
+		const unidades = [];
+		roupas.forEach(i => { // da um preço de cada roupa no array unidades 
+			for (let q = 0; q < i.quantidade; q++) {
+				unidades.push(i.precoUnitario);
+			}
+		});
+		unidades.sort((a, b) => a - b); //orderna os prços de forma crescente 
+
+		const numGruposDe3 = Math.floor(unidades.length / 3); // calcula os grupos de 3 
+		let descontoR3 = 0;
+		for (let g = 0; g < numGruposDe3; g++) {// aplicas o valor para os grupos de 3
+			descontoR3 += unidades[g * 3];
+		}
+		if (descontoR3 > 0) { 
+			subtotal -= descontoR3;
+			descontos.push({
+				codigo: "LEVE3PAGUE2",
+				descricao: "Leve 3 Pague 2 (roupas)",
+				valor: descontoR3
+			});
+		}
+
+		let descontoR1 = 0; // aplica o desconto vip, se o cliente for vip 
+		if (cliente?.tipo === "VIP" && cupomCodigo !== "SEM-VIP") {
+			descontoR1 = subtotal * 0.05; // cria o desconto de 5% para clientes vips 
+			subtotal -= descontoR1;
+			descontos.push({
+				codigo: "VIP",
+				descricao: "Desconto VIP 5%",
+				valor: descontoR1 
+			});
+		}
+
+		let descontoR2Cupom = 0; //aplica desconto de cupao caso os tenha 
+		let frete = this.fretePadrao;
+		if (cupomCodigo === "ETIC10") {
+			descontoR2Cupom = subtotal * 0.10; // cria desconto de 10% com cupom etic10
+			subtotal -= descontoR2Cupom;
+			descontos.push({
+				codigo: "ETIC10",
+				descricao: "Desconto cupom ETIC10 10%",
+				valor: descontoR2Cupom
+			});
+		} else if (cupomCodigo === "FRETEGRATIS") {// se tiver cupom tiver frete gratis, o cliente nao paga frete 
+			frete = 0;
+		}
+
+		let descontoR4 = 0;// se o valor for maior que 500 ira se aplicas um desconto adicional 
+		if (subtotal >= 500) {
+			descontoR4 = 30;
+			subtotal -= descontoR4;
+			descontos.push({
+				codigo: "VALOR500",
+				descricao: "Desconto por valor >= 500",
+				valor: descontoR4
+			});
+		}
+
+		subtotal = Math.max(0, subtotal); //assegura que subtotal nao fique negativo 
+
+
+		const impostoPorCategoria = {}; // calcula impostos consoante o sector 
+		detalhes.forEach(i => {
+			const taxa = i.categoria === "vestuário" ? 0.12 : 0.18; // define iposto de 12% para vestuario e 18% para o resto 
+			impostoPorCategoria[i.categoria] = //acumula os impostos todos 
+				(impostoPorCategoria[i.categoria] || 0) + i.total * taxa;
+		});
+		const totalImpostos = Object.values(impostoPorCategoria).reduce((a, b) => a + b, 0); // faz o total dos impostos
+
+		const totalDescontos = descontos.reduce((sum, d) => sum + d.valor, 0); // calacula o total dos descontos 
+		const total = subtotal + totalImpostos + frete;// calcula o valor do subtotal mais impostos mais envio
+
+		return { //retorna o subtotal, descontos, total descontos, imposto, envio...
+			subtotal: subtotalOriginal,
+			descontos,
+			totalDescontos,
+			impostoPorCategoria,
+			totalImpostos,
+			frete,
+			total,
+			itens: detalhes
+		};
 	}
 }
 
@@ -500,19 +608,42 @@ class MotorDePrecos {
 // - cancelar()
 
 class Pedido {
-	constructor({ id, clienteId, itens, breakdown }) {
-		// TODO
-		throw new Error("TODO: implementar Pedido");
+	constructor({ id, clienteId, itens = [], breakdown = {} }) {
+		if (!id) throw new Error("id é obrigatório"); // verifica o id 
+		if (!clienteId) throw new Error("clienteId é obrigatório");// verifica a existencia do cliente 
+		if (!Array.isArray(itens)) throw new Error("itens deve ser um array");//garante que os items estejam num array 
+
+		this.id = id;
+		this.clienteId = clienteId;
+		this.itens = itens;
+		this.breakdown = breakdown;
+
+		this.status = "ABERTO";
+		this.createdAt = new Date();
 	}
 
 	pagar() {
-		// TODO
-		throw new Error("TODO: implementar pagar");
+		if (this.status === "CANCELADO") {// nao deixa fazer o pagamento caso o pediso seja cancelado 
+			throw new Error("Não é possível pagar um pedido cancelado");
+		}
+
+		if (this.status === "PAGO") {//nao deixa fazer pagamentos duplicaods 
+			throw new Error("Pedido já está pago");
+		}
+
+		this.status = "PAGO"; // determina como pago 
 	}
 
 	cancelar() {
-		// TODO
-		throw new Error("TODO: implementar cancelar");
+		if (this.status === "PAGO") {// nao deixa cacelar produto ja pago 
+			throw new Error("Não é possível cancelar um pedido já pago");
+		}
+
+		if (this.status === "CANCELADO") {//nao deixa cancela em dumplicado 
+			throw new Error("Pedido já está cancelado");
+		}
+
+		this.status = "CANCELADO";//determina como cancelado 
 	}
 }
 
@@ -763,3 +894,5 @@ function runDemo() {
 
 // Quando terminar tudo, descomente:
 // runDemo();
+
+
