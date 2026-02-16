@@ -118,7 +118,6 @@ class Produto {
 		this.categoria = categoria;
 		this.numeroMaximoParcelas = numeroMaximoParcelas;
 
-		throw new Error("TODO: implementar Produto");
 
 	}
 
@@ -152,56 +151,46 @@ class Cliente {
 	constructor({ id, nome, tipo = "REGULAR", saldoPontos = 0 }) {
 		const tiposAceitos = ["REGULAR", "VIP"];
 
-		if (tiposAceitos.includes(tipo)) {
-			throw new Error("Não é nem Regular nem VIP");
+		if (!tiposAceitos.includes(tipo)) {
+			throw new Error("Tipo deve ser REGULAR ou VIP");
 		}
 		if (typeof id !== 'string') {
-			throw new Error('Nome deve ser uma string');
+			throw new Error('ID deve ser uma string');
 		}
 		if (typeof nome !== 'string') {
 			throw new Error('Nome deve ser uma string');
 		}
 		if (typeof tipo !== 'string') {
-			throw new Error('Nome deve ser uma string');
+			throw new Error('Tipo deve ser uma string');
 		}
-		if (typeof saldoPontos !== 'number' || saldoPontos <= 0) {
-			throw new Error('Nome deve ser uma string');
+		if (typeof saldoPontos !== 'number' || saldoPontos < 0) {
+			throw new Error('Saldo de pontos deve ser número >= 0');
 		}
 
 		this.id = id;
 		this.nome = nome;
 		this.tipo = tipo;
 		this.saldoPontos = saldoPontos;
-
-
-		throw new Error("TODO: implementar Cliente");
 	}
 
 	adicionarPontos(pontos) {
-		// TODO
+		if (!Number.isInteger(pontos) || pontos <= 0) {
+			throw new Error("Pontos devem ser inteiro > 0");
+		}
+		this.saldoPontos += pontos;
+	}
+
+	resgatarPontos(pontos) {
 		if (!Number.isInteger(pontos) || pontos <= 0) {
 			throw new Error("Pontos devem ser inteiro > 0");
 		}
 
-		this.saldoPontos += pontos;
+		if (pontos > this.saldoPontos) {
+			throw new Error("Saldo insuficiente para resgate");
+		}
+
+		this.saldoPontos -= pontos;
 	}
-	//throw new Error("TODO: implementar adicionarPontos");
-}
-
-resgatarPontos(pontos); {
-	// TODO
-	if (!Number.isInteger(pontos) || pontos <= 0) {
-		throw new Error("Pontos devem ser inteiro > 0");
-	}
-
-	if (pontos > this.saldoPontos) {
-		throw new Error("Saldo insuficiente para resgate");
-	}
-
-	this.saldoPontos -= pontos;
-
-	//throw new Error("TODO: implementar resgatarPontos");
-
 }
 
 // 3) Crie a classe ItemCarrinho
@@ -238,7 +227,7 @@ class ItemCarrinho {
 		});
 
 
-		throw new Error("TODO: implementar ItemCarrinho");
+
 	}
 
 	getTotal() {
@@ -246,8 +235,6 @@ class ItemCarrinho {
 		const total = this.quantidade * this.precoUnitario;
 		return Number(total.toFixed(2));
 
-
-		//throw new Error("TODO: implementar getTotal");
 	}
 }
 
@@ -488,10 +475,10 @@ class MotorDePrecos {
 		}
 
 		const detalhes = itens.map(item => { // cria um novo array com os detalhes de cada item
-			const produto = this.catalogo.buscarPorId(item.produtoId); // procura o produto atraves do id
-			if (!produto) throw new Error(`Produto ${item.produtoId} não encontrado`);
+			const produto = this.catalogo.getProduto(item.sku); // procura o produto atraves do id
+			if (!produto) throw new Error(`Produto ${item.sku} não encontrado`);
 			return { // retorna todos os detalhes do produto 
-				produtoId: produto.id,
+				sku: produto.sku,
 				nome: produto.nome,
 				categoria: produto.categoria,
 				precoUnitario: produto.preco,
@@ -682,17 +669,17 @@ class CaixaRegistradora {
 
 		const itensDoPedido = [];//array contendo com os item 
 
-		for (const item of carrinho) {
-			const { produtoId, quantidade } = item;//retira os dados do item
+		for (const item of carrinho.listarItens()) {
+			const { sku, quantidade } = item;//retira os dados do item
 
-			if (!produtoId || !quantidade || quantidade <= 0) {//verifica o carrinho com os contedudos inseridos 
+			if (!sku || !quantidade || quantidade <= 0) {//verifica o carrinho com os contedudos inseridos 
 				throw new Error("Item do carrinho inválido");
 			}
 
-			const produto = this.catalogo.buscarPorId(produtoId);//taz os produtos do catalogo 
+			const produto = this.catalogo.getProduto(sku);//taz os produtos do catalogo 
 
 			if (!produto) {
-				throw new Error(`Produto não encontrado: ${produtoId}`);//caso produto nao exista aparece aviso 
+				throw new Error(`Produto não encontrado: ${sku}`);//caso produto nao exista aparece aviso 
 			}
 
 			if (numeroDeParcelas > produto.maximoParcelas) {
@@ -702,9 +689,9 @@ class CaixaRegistradora {
 			}
 
 			itensDoPedido.push({//define os item pedido preparando pra fazer o pedido 
-				produto,
-				quantidade,
-				precoUnitario: produto.preco
+				sku: produto.sku,
+				quantidade: quantidade,
+
 			});
 		}
 
@@ -715,10 +702,7 @@ class CaixaRegistradora {
 		});
 
 		for (const item of itensDoPedido) {//remove os produtos do estoque apos o pedido 
-			this.estoque.remover({
-				produtoId: item.produto.id,
-				quantidade: item.quantidade
-			});
+			this.estoque.remover(item.sku, item.quantidade);
 		}
 
 		const resumoParcelas = itensDoPedido.map(item => { // mostra o resumo do numero de parcelas 
@@ -726,8 +710,8 @@ class CaixaRegistradora {
 			const valorParcela = totalItem / numeroDeParcelas; //valor de cada parcela 
 
 			return {
-				produtoId: item.produto.id,
-				nomeProduto: item.produto.nome,
+				sku: item.sku,
+				nomeProduto: item.nome,
 				quantidade: item.quantidade,
 				totalItem,
 				parcelas: numeroDeParcelas,
@@ -735,19 +719,17 @@ class CaixaRegistradora {
 			};
 		});
 
-		const pedido = new Pedido({// cria um novo pedido com todas a informações necessaria 
-			cliente,
-			itens: itensDoPedido,
-			subtotal: resultadoPreco.subtotal,
-			desconto: resultadoPreco.desconto,
-			total: resultadoPreco.total,
-			cupomCodigo,
-			numeroDeParcelas,
-			resumoParcelas
+		const pedido = new Pedido({
+			id: `PED-${Date.now()}`,      // gera um ID único
+			clienteId: cliente.id,        // ID do cliente
+			itens: itensDoPedido,         // itens do pedido
+			breakdown: {
+				...resultadoPreco,        // subtotal, descontos, impostos, total, frete
+				numeroDeParcelas,
+				resumoParcelas,
+				cupomCodigo
+			}
 		});
-
-		this._imprimirResumo(pedido);
-
 		return pedido;
 	}
 
@@ -811,7 +793,7 @@ class CupomFiscal {
 		let subtotal = 0;
 
 		for (const item of pedido.itens) {//cria um bloco de repetião que preocura os item por sku, obtem o preço, calcula o total de item, e faz a soma do subtotal 
-			const produto = catalogo[item.sku];
+			const produto = this.catalogo.getProduto(item.sku);
 			if (!produto) {
 				throw new Error(`Produto não encontrado no catálogo: ${item.sku}`);
 			}
@@ -900,95 +882,62 @@ class Impressora {// faz a impressao em linhas na consola
 
 class RelatorioVendas {
 	constructor() {
-		this.pedidos = [];//array que armazena os pedidos pagos
+		this.pedidos = [];
 	}
 
-	registrarPedido(pedido) {//faz o registo dos pedidos que froram pagos 
-		if (pedido.pago) {
+	registrarPedido(pedido) {
+		if (pedido.status === "PAGO") {
 			this.pedidos.push(pedido);
 		}
 	}
 
-	totalArrecadado() {// calcula o total do valor ganho consoantes os item, impostos e descontos 
-		return this.pedidos.reduce((total, pedido) => {
-			const subtotalItens = pedido.itens.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
-			const totalPedido = subtotalItens + (pedido.imposto || 0) - (pedido.desconto || 0);
-			return total + totalPedido;
-		}, 0);
+	totalArrecadado() {
+		return this.pedidos.reduce((soma, pedido) =>
+			soma + pedido.breakdown.total
+			, 0);
 	}
 
 	totalImpostos() {
-		return this.pedidos.reduce((total, pedido) => total + (pedido.imposto || 0), 0);
+		return this.pedidos.reduce((soma, pedido) =>
+			soma + pedido.breakdown.totalImpostos
+			, 0);
 	}
 
 	totalDescontos() {
-		return this.pedidos.reduce((total, pedido) => total + (pedido.desconto || 0), 0);
+		return this.pedidos.reduce((soma, pedido) =>
+			soma + pedido.breakdown.totalDescontos
+			, 0);
 	}
 
 	rankingProdutosPorQuantidade(topN = 5) {
-		const quantidadePorProduto = new Map();
+		const mapa = new Map();
 
 		this.pedidos.forEach(pedido => {
-			pedido.itens.forEach(item => {
-				const qtdAtual = quantidadePorProduto.get(item.sku) || 0;
-				quantidadePorProduto.set(item.sku, qtdAtual + item.quantidade);
+			pedido.breakdown.itens.forEach(item => {
+				const atual = mapa.get(item.sku) || 0;
+				mapa.set(item.sku, atual + item.quantidade);
 			});
 		});
 
-		const ranking = Array.from(quantidadePorProduto.entries())
+		return [...mapa.entries()]
 			.sort((a, b) => b[1] - a[1])
 			.slice(0, topN)
 			.map(([sku, quantidade]) => ({ sku, quantidade }));
-
-		return ranking;
 	}
 
 	arrecadadoPorCategoria() {
-		const arrecadadoCategoria = new Map();
+		const mapa = new Map();
 
 		this.pedidos.forEach(pedido => {
-			pedido.itens.forEach(item => {
-				const arrecadadoItem = item.preco * item.quantidade;
-				const totalAtual = arrecadadoCategoria.get(item.categoria) || 0;
-				arrecadadoCategoria.set(item.categoria, totalAtual + arrecadadoItem);
+			pedido.breakdown.itens.forEach(item => {
+				const atual = mapa.get(item.categoria) || 0;
+				mapa.set(item.categoria, atual + item.total);
 			});
 		});
 
-		const resultado = {};
-		for (const [categoria, valor] of arrecadadoCategoria.entries()) {
-			resultado[categoria] = valor;
-		}
-		return resultado;
+		return Object.fromEntries(mapa);
 	}
 }
-
-const relatorio = new RelatorioVendas();
-
-relatorio.registrarPedido({
-	pago: true,
-	imposto: 5,
-	desconto: 3,
-	itens: [
-		{ sku: 'A1', preco: 10, quantidade: 2, categoria: 'Eletrônicos' },
-		{ sku: 'B2', preco: 20, quantidade: 1, categoria: 'Roupas' }
-	]
-});
-
-relatorio.registrarPedido({
-	pago: true,
-	imposto: 2,
-	desconto: 0,
-	itens: [
-		{ sku: 'A1', preco: 10, quantidade: 1, categoria: 'Eletrônicos' },
-		{ sku: 'C3', preco: 15, quantidade: 3, categoria: 'Roupas' }
-	]
-});
-
-console.log('Total arrecadado:', relatorio.totalArrecadado());
-console.log('Total impostos:', relatorio.totalImpostos());
-console.log('Total descontos:', relatorio.totalDescontos());
-console.log('Ranking produtos:', relatorio.rankingProdutosPorQuantidade(3));
-console.log('Arrecadado por categoria:', relatorio.arrecadadoPorCategoria());
 
 // ==========================================
 // DADOS DE TESTE (para o demo)
@@ -1136,6 +1085,4 @@ function runDemo() {
 }
 
 // Quando terminar tudo, descomente:
-// runDemo();
-
-
+runDemo();
