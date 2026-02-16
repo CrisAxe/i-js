@@ -519,7 +519,7 @@ class MotorDePrecos {
 		for (let g = 0; g < numGruposDe3; g++) {// aplicas o valor para os grupos de 3
 			descontoR3 += unidades[g * 3];
 		}
-		if (descontoR3 > 0) { 
+		if (descontoR3 > 0) {
 			subtotal -= descontoR3;
 			descontos.push({
 				codigo: "LEVE3PAGUE2",
@@ -535,7 +535,7 @@ class MotorDePrecos {
 			descontos.push({
 				codigo: "VIP",
 				descricao: "Desconto VIP 5%",
-				valor: descontoR1 
+				valor: descontoR1
 			});
 		}
 
@@ -784,18 +784,98 @@ class CaixaRegistradora {
 // - status do pedido
 
 class CupomFiscal {
-	constructor({ pedido, catalogo }) {
-		// TODO
-		throw new Error("TODO: implementar CupomFiscal");
+	constructor({ pedido, catalogo }) {// verificação da existencia de pedido e catalogo
+		if (!pedido) throw new Error("pedido é obrigatório");
+		if (!catalogo) throw new Error("catalogo é obrigatório");
+
+		this.pedido = pedido;
+		this.catalogo = catalogo;
 	}
 
-	gerarLinhas() {
-		// TODO
-		throw new Error("TODO: implementar gerarLinhas");
+	formatarMoeda(valor) {
+		return `R$ ${valor.toFixed(2)}`;
+	}
+
+	gerarLinhas() { //criação de cupom com array de strings 
+		const linhas = [];
+		const { pedido, catalogo } = this;
+
+		linhas.push("======================================");//criação do cabeçalho com as informaçoes basicas como id do pedido e hora
+		linhas.push("CUPOM FISCAL");
+		linhas.push(`Pedido: ${pedido.id}`);
+		linhas.push(`Data: ${new Date().toLocaleString()}`);
+		linhas.push("======================================");
+		linhas.push("");
+
+		linhas.push("ITENS:");
+		let subtotal = 0;
+
+		for (const item of pedido.itens) {//cria um bloco de repetião que preocura os item por sku, obtem o preço, calcula o total de item, e faz a soma do subtotal 
+			const produto = catalogo[item.sku];
+			if (!produto) {
+				throw new Error(`Produto não encontrado no catálogo: ${item.sku}`);
+			}
+
+			const precoUnitario = produto.preco;
+			const totalItem = precoUnitario * item.quantidade;
+			subtotal += totalItem;
+
+			linhas.push(
+				`${item.sku} | Qtd: ${item.quantidade} | Unit: ${this.formatarMoeda(precoUnitario)} | Total: ${this.formatarMoeda(totalItem)}`
+			);
+		}
+
+		linhas.push("");
+		linhas.push("--------------------------------------");
+		linhas.push(`Subtotal: ${this.formatarMoeda(subtotal)}`);
+
+		let totalDescontos = 0;
+		if (pedido.descontos && pedido.descontos.length > 0) {//loop que faz a verificaçao da existencia de descontos, faz a soma do desconto e mostra os descontos 
+			linhas.push("");
+			linhas.push("DESCONTOS:");
+
+			for (const desconto of pedido.descontos) {
+				totalDescontos += desconto.valor;
+				linhas.push(
+					`${desconto.descricao}: -${this.formatarMoeda(desconto.valor)}`
+				);
+			}
+		}
+
+		let totalImpostos = 0; //loop que verifica a existencia de impostos, percorre cada imposto, soma o valor e mostra em linha 
+		if (pedido.impostos && pedido.impostos.length > 0) {
+			linhas.push("");
+			linhas.push("IMPOSTOS:");
+
+			for (const imposto of pedido.impostos) {
+				totalImpostos += imposto.valor;
+				linhas.push(
+					`${imposto.categoria}: ${this.formatarMoeda(imposto.valor)}`
+				);
+			}
+		}
+
+		const frete = pedido.frete || 0;
+		if (frete > 0) {// loop que verifica a nessecida de frete gratis ou nao
+			linhas.push("");
+			linhas.push(`Frete: ${this.formatarMoeda(frete)}`);
+		}
+
+		const total =
+			subtotal - totalDescontos + totalImpostos + frete;//faz o calculo do subtotal, total descontos, total impostos e fretes 
+
+		linhas.push("--------------------------------------");
+		linhas.push(`TOTAL: ${this.formatarMoeda(total)}`);
+		linhas.push("");
+
+		linhas.push(`Status do Pedido: ${pedido.status}`);
+		linhas.push("======================================");
+
+		return linhas;
 	}
 }
 
-class Impressora {
+class Impressora {// faz a impressao em linhas na consola 
 	imprimirLinhas(linhas) {
 		for (const linha of linhas) {
 			console.log(linha);
@@ -820,40 +900,95 @@ class Impressora {
 
 class RelatorioVendas {
 	constructor() {
-		// TODO
-		throw new Error("TODO: implementar RelatorioVendas");
+		this.pedidos = [];//array que armazena os pedidos pagos
 	}
 
-	registrarPedido(pedido) {
-		// TODO
-		throw new Error("TODO: implementar registrarPedido");
+	registrarPedido(pedido) {//faz o registo dos pedidos que froram pagos 
+		if (pedido.pago) {
+			this.pedidos.push(pedido);
+		}
 	}
 
-	totalArrecadado() {
-		// TODO
-		throw new Error("TODO: implementar totalArrecadado");
+	totalArrecadado() {// calcula o total do valor ganho consoantes os item, impostos e descontos 
+		return this.pedidos.reduce((total, pedido) => {
+			const subtotalItens = pedido.itens.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+			const totalPedido = subtotalItens + (pedido.imposto || 0) - (pedido.desconto || 0);
+			return total + totalPedido;
+		}, 0);
 	}
 
 	totalImpostos() {
-		// TODO
-		throw new Error("TODO: implementar totalImpostos");
+		return this.pedidos.reduce((total, pedido) => total + (pedido.imposto || 0), 0);
 	}
 
 	totalDescontos() {
-		// TODO
-		throw new Error("TODO: implementar totalDescontos");
+		return this.pedidos.reduce((total, pedido) => total + (pedido.desconto || 0), 0);
 	}
 
 	rankingProdutosPorQuantidade(topN = 5) {
-		// TODO
-		throw new Error("TODO: implementar rankingProdutosPorQuantidade");
+		const quantidadePorProduto = new Map();
+
+		this.pedidos.forEach(pedido => {
+			pedido.itens.forEach(item => {
+				const qtdAtual = quantidadePorProduto.get(item.sku) || 0;
+				quantidadePorProduto.set(item.sku, qtdAtual + item.quantidade);
+			});
+		});
+
+		const ranking = Array.from(quantidadePorProduto.entries())
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, topN)
+			.map(([sku, quantidade]) => ({ sku, quantidade }));
+
+		return ranking;
 	}
 
 	arrecadadoPorCategoria() {
-		// TODO
-		throw new Error("TODO: implementar arrecadadoPorCategoria");
+		const arrecadadoCategoria = new Map();
+
+		this.pedidos.forEach(pedido => {
+			pedido.itens.forEach(item => {
+				const arrecadadoItem = item.preco * item.quantidade;
+				const totalAtual = arrecadadoCategoria.get(item.categoria) || 0;
+				arrecadadoCategoria.set(item.categoria, totalAtual + arrecadadoItem);
+			});
+		});
+
+		const resultado = {};
+		for (const [categoria, valor] of arrecadadoCategoria.entries()) {
+			resultado[categoria] = valor;
+		}
+		return resultado;
 	}
 }
+
+const relatorio = new RelatorioVendas();
+
+relatorio.registrarPedido({
+	pago: true,
+	imposto: 5,
+	desconto: 3,
+	itens: [
+		{ sku: 'A1', preco: 10, quantidade: 2, categoria: 'Eletrônicos' },
+		{ sku: 'B2', preco: 20, quantidade: 1, categoria: 'Roupas' }
+	]
+});
+
+relatorio.registrarPedido({
+	pago: true,
+	imposto: 2,
+	desconto: 0,
+	itens: [
+		{ sku: 'A1', preco: 10, quantidade: 1, categoria: 'Eletrônicos' },
+		{ sku: 'C3', preco: 15, quantidade: 3, categoria: 'Roupas' }
+	]
+});
+
+console.log('Total arrecadado:', relatorio.totalArrecadado());
+console.log('Total impostos:', relatorio.totalImpostos());
+console.log('Total descontos:', relatorio.totalDescontos());
+console.log('Ranking produtos:', relatorio.rankingProdutosPorQuantidade(3));
+console.log('Arrecadado por categoria:', relatorio.arrecadadoPorCategoria());
 
 // ==========================================
 // DADOS DE TESTE (para o demo)
